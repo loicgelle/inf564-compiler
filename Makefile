@@ -19,10 +19,10 @@ compiler: $(CMO)
 	ocamllex $<
 
 .mly.ml:
-	menhir -v $<
+	menhir --infer -v $<
 
 .mly.mli:
-	menhir -v $<
+	menhir --infer -v $<
 
 clean:
 	rm -f *.cm[io] *.o *.annot *~ compiler $(GENERATED)

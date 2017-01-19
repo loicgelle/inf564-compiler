@@ -6,4 +6,5 @@ compiler
 *.cmo
 parser.ml
 parser.mli
+.depend
 lexer.ml
