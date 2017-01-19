@@ -3,6 +3,8 @@
 
 type ident = string
 
+type nullexpr = NullExpr
+
 type unop =
   | Uneg | Unot
 
@@ -41,6 +43,5 @@ and stmt =
 
 and def = ident * ident list * stmt
 
-and file = def list * stmt
-
-type nullexpr = NullExpr
+(*and file = def list * stmt*)
+and file = nullexpr

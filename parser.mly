@@ -34,62 +34,62 @@
 
 file:
 | dl = decl*; EOF
-  { dl, NullExpr }
+  { NullExpr }
 ;
 
 decl:
 | e = decl_vars
-  { e, NullExpr }
+  { NullExpr }
 | e = decl_typ
-  { e, NullExpr }
+  { NullExpr }
 | e = decl_fct
-  { e, NullExpr }
+  { NullExpr }
 
 starident:
 | STAR; x = ident
-  { x, NullExpr }
+  { NullExpr }
 
 decl_vars:
 | INT; x = separated_nonempty_list(COMMA, ident); SEMICOLON
-  { x, NullExpr }
+  { NullExpr }
 | STRUCT; x = ident; y = separated_list(COMMA, starident); SEMICOLON
-  { x, NullExpr }
+  { NullExpr }
 
 decl_typ:
 | STRUCT; x = ident; LB; y = decl_vars*; RB; SEMICOLON
-  { x, y, NullExpr }
+  { NullExpr }
 
 decl_fct:
 | INT; x = ident; LP; y = separated_list(COMMA, param); RP; b = block
-  { x, y, b, NullExpr }
+  { NullExpr }
 | STRUCT; x = ident; STAR; y = ident; LP; z = separated_list(COMMA, param); RP; b = block
-  { x, z, b, NullExpr } (* TODO : UTILISER Y *)
+  { NullExpr }
 
 param:
 | INT; x = ident
-  { x, NullExpr }
+  { NullExpr }
 | STRUCT; x = ident; STAR; y = ident
-  { x, y, NullExpr }
+  { NullExpr }
 
 expr:
 | x = INTEG
-  { x, NullExpr }
+  { NullExpr }
 | x = ident
-  { x, NullExpr }
+  { NullExpr }
 | x = expr; MINUS; GT; y = ident
-  { x, y, NullExpr }
+  { NullExpr }
 | x = ident; LP; y = separated_list(COMMA, param); RP
-  { x, y, NullExpr }
+  { NullExpr }
 | EXCL; x = expr
-  { x, NullExpr }
+  { NullExpr }
 | MINUS; x = expr
-  { x, NullExpr }
+  { NullExpr }
 | x = expr; y = operator; z = expr
-  { x, y, z, NullExpr }
+  { NullExpr }
 | SIZEOF; LP; STRUCT; x = ident; RP
-  { x, NullExpr }
+  { NullExpr }
 | LB; x = expr; RB
-  { x, NullExpr }
+  { NullExpr }
 
 operator:
 | EQUAL
@@ -123,21 +123,21 @@ instruction:
 | SEMICOLON
   { NullExpr }
 | x = expr; SEMICOLON
-  { x, NullExpr }
+  { NullExpr }
 | IF; LP; x = expr; RP; y = instruction
-  { x, y, NullExpr }
+  { NullExpr }
 | IF; LP; x = expr; RP; y = instruction; ELSE; z = instruction
-  { x, y, z, NullExpr }
+  { NullExpr }
 | WHILE; LP; x = expr; RP; y = instruction
-  { x, y, NullExpr }
+  { NullExpr }
 | x = block
-  { x, NullExpr }
+  { NullExpr }
 | RETURN; x = expr; SEMICOLON
-  { x, NullExpr }
+  { NullExpr }
 
 block:
 | LB; x = decl_vars*; y = instruction*; RB
-  { x, y }
+  { NullExpr }
 
 ident:
   id = IDENT { id }
