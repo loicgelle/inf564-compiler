@@ -1,5 +1,5 @@
 
-/* Analyseur syntaxique pour Mini-Python */
+/* Analyseur syntaxique pour Mini-C */
 
 %{
   open Ast
@@ -114,30 +114,6 @@ expr:
   { Band }
 | OR
   { Bor }
-
-/*simple_instr:
-| SEMICOLON
-  { Ivoid }
-| e = expr; SEMICOLON
-  { Iexpr e }
-| RETURN; e = expr; SEMICOLON
-  { Iret e }
-
-suite_ctrl:
-| s = simple_instr
-  { s }
-| b = block
-  { Iblock b }
-
-instruction:
-| s = simple_instr
-  { s }
-| IF; LP; e = expr; RP; s1 = suite_ctrl; ELSE; s2 = suite_ctrl
-  { Iifelse(e, s1, s2) }
-| IF; LP; e = expr; RP; s = suite_ctrl
-  { Iif(e, s) }
-| WHILE; LP; e = expr; RP; s = suite_ctrl
-  { Iwhile(e, s) }*/
 
 instruction:
 | SEMICOLON

@@ -19,7 +19,7 @@
       { pos with pos_lnum = pos.pos_lnum + 1; pos_bol = pos.pos_cnum }
 }
 
-let space = ' ' | '\t' | '\n'
+let space = ' ' | '\t'
 let letter = ['a'-'z' 'A'-'Z']
 let digit = ['0'-'9']
 let ident = (letter | '_') (letter | digit | '_')*
@@ -42,18 +42,20 @@ let integer = '0'
             | '0' (octal_digit)+
             | "0x" (hexa_digit)+
 let integerChar = "\'" char "\'"
-let comment = "//" [^'\n']*
-            | '/' '*' ('*'* [^'/'])* '*' '*'* '/'
 
 rule next_tokens = parse
   | '\n'
-      { newline lexbuf; next_tokens lexbuf }
-  | comment
-      { newline lexbuf; next_tokens lexbuf }
+    { newline lexbuf; next_tokens lexbuf }
+  | "/*"
+    { comment lexbuf }
+  | "//" [^ '\n' ]*
+    { next_tokens lexbuf }
+  | "//" [^ '\n' ]* eof
+    { [EOF] }
   | space+
-      { next_tokens lexbuf }
-  | '*'     { [STAR] }
+    { next_tokens lexbuf }
   | '-'     { [MINUS] }
+  | '*'     { [STAR] }
   | ident as id { [id_or_kwd id] }
   | '+'     { [PLUS] }
   | '/'     { [DIV] }
@@ -83,6 +85,11 @@ rule next_tokens = parse
   | eof     { [EOF] }
   | _ as c  { raise (Lexing_error ("illegal character: " ^ String.make 1 c)) }
 
+and comment = parse
+  | '\n'  { newline lexbuf; comment lexbuf }
+  | "*/"	{ next_tokens lexbuf }
+  | _   	{ comment lexbuf }
+  | eof 	{ raise (Lexing_error ("unterminated comment")) }
 {
 
   let next_token =
