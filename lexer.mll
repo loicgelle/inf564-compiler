@@ -16,7 +16,7 @@
   let newline lexbuf =
     let pos = lexbuf.lex_curr_p in
     lexbuf.lex_curr_p <-
-      { pos with pos_lnum = pos.pos_lnum + 1; pos_bol = 0 }
+      { pos with pos_lnum = pos.pos_lnum + 1; pos_bol = pos.pos_cnum }
 }
 
 let space = ' ' | '\t' | '\n'
@@ -42,14 +42,15 @@ let integer = '0'
             | '0' (octal_digit)+
             | "0x" (hexa_digit)+
 let integerChar = "\'" char "\'"
-
 let comment = "//" [^'\n']*
-            | '/' '*' ('*'* char | '\n')* '*' '*'* '/'
+            | '/' '*' ('*'* [^'/'])* '*' '*'* '/'
 
 rule next_tokens = parse
   | '\n'
       { newline lexbuf; next_tokens lexbuf }
-  | (space | comment)+
+  | comment
+      { newline lexbuf; next_tokens lexbuf }
+  | space+
       { next_tokens lexbuf }
   | '*'     { [STAR] }
   | '-'     { [MINUS] }
@@ -85,7 +86,7 @@ rule next_tokens = parse
 {
 
   let next_token =
-    let tokens = Queue.create () in (* prochains lexèmes à renvoyer *)
+    let tokens = Queue.create () in (* prochains lex?mes ? renvoyer *)
     fun lb ->
       if Queue.is_empty tokens then begin
 	let l = next_tokens lb in

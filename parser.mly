@@ -115,7 +115,7 @@ expr:
 | OR
   { Bor }
 
-simple_instr:
+/*simple_instr:
 | SEMICOLON
   { Ivoid }
 | e = expr; SEMICOLON
@@ -137,7 +137,23 @@ instruction:
 | IF; LP; e = expr; RP; s = suite_ctrl
   { Iif(e, s) }
 | WHILE; LP; e = expr; RP; s = suite_ctrl
+  { Iwhile(e, s) }*/
+
+instruction:
+| SEMICOLON
+  { Ivoid }
+| e = expr; SEMICOLON
+  { Iexpr e }
+| RETURN; e = expr; SEMICOLON
+  { Iret e }
+| IF; LP; e = expr; RP; s1 = instruction; ELSE; s2 = instruction
+  { Iifelse(e, s1, s2) }
+| IF; LP; e = expr; RP; s = instruction
+  { Iif(e, s) }
+| WHILE; LP; e = expr; RP; s = instruction
   { Iwhile(e, s) }
+| b = block
+  { Iblock b }
 
 block:
 | LB; l1 = decl_vars*; l2 = instruction*; RB
