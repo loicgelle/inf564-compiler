@@ -1,4 +1,4 @@
-all: compiler
+all: compiler tests1
 
 compiler:
 	ocamlbuild main.native

@@ -1,47 +1,44 @@
 
-(* Arbres de syntaxe abstraite de Mini-Python *)
+(* Arbres de syntaxe abstraite de Mini-C *)
 
 type ident = string
 
-type nullexpr = NullExpr
-
-type unop =
-  | Uneg | Unot
-
-type binop =
-  | Badd | Bsub | Bmul | Bdiv | Bmod
-  | Beq | Bneq | Blt | Ble | Bgt | Bge (* comparaison structurelle *)
-  | Band | Bor (* paresseux *)
-
-type constant =
-  | Cnone
-  | Cbool of bool
-  | Cstring of string
-  | Cint of int (* en Python les entiers sont en r�alit� de pr�cision
-                   arbitraire; on simplifie ici *)
-
 type expr =
-  | Ecst of constant
-  | Ebinop of binop * expr * expr
-  | Eunop of unop * expr
+  | Eint of int
+  | Eident of ident
+  | Efetch of expr * ident
   | Ecall of ident * expr list
-  | Elist of expr list
-  | Eleft of left_value
-
-and left_value =
-  | Lident of ident
-  | Lnth of expr * expr
-
-and stmt =
-  | Sif of expr * stmt * stmt
-  | Sreturn of expr
-  | Sassign of left_value * expr
-  | Sprint of expr
-  | Sblock of stmt list
-  | Sfor of ident * expr * stmt
-  | Seval of expr
-
-and def = ident * ident list * stmt
-
-(*and file = def list * stmt*)
-and file = nullexpr
+  | Eunop of unop * expr
+  | Ebinop of binop * expr * expr
+  | Esizeof of ident
+  | Eterm of expr
+and unop =
+  | Uneg
+  | Unot
+and binop =
+  | Beq | Bdbleq | Bneq | Blt | Blte | Bgt | Bgte
+  | Badd | Bsub | Bmul | Bdiv | Band | Bor
+and file = decl list
+and decl =
+  | DV of decl_vars | DF of decl_fct | DT of decl_typ
+and decl_vars =
+  | DVint of ident list
+  | DVstruct of ident * ident list
+and decl_fct =
+  | DFint of ident * param list * block
+  | DFstruct of ident * ident * param list * block
+and decl_typ =
+  | DTstruct of ident * decl_vars list
+and param =
+  | Pint of ident
+  | Pstruct of ident * ident
+and instr =
+  | Ivoid
+  | Iexpr of expr
+  | Iif of expr * instr
+  | Iifelse of expr * instr * instr
+  | Iwhile of expr * instr
+  | Iblock of block
+  | Iret of expr
+and block =
+  | Block of decl_vars list * instr list
