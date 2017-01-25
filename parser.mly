@@ -3,6 +3,9 @@
 
 %{
   open Ast
+
+  let loc_wrapper elem sp ep =
+    (elem, (sp, ep))
 %}
 
 %token <int> INTEG
@@ -30,16 +33,16 @@
 
 file:
 | df = decl*; EOF
-  { df }
+  { loc_wrapper df $startpos $endpos }
 ;
 
 decl:
 | d = decl_vars
-  { DV d }
+  { loc_wrapper (DV d) $startpos $endpos }
 | d = decl_typ
-  { DT d }
+  { loc_wrapper (DT d) $startpos $endpos }
 | d = decl_fct
-  { DF d }
+  { loc_wrapper (DF d) $startpos $endpos }
 
 starident:
 | STAR; x = ident
@@ -47,45 +50,45 @@ starident:
 
 decl_vars:
 | INT; l = separated_nonempty_list(COMMA, ident); SEMICOLON
-  { DVint l }
+  { loc_wrapper (DVint l) $startpos $endpos }
 | STRUCT; id = ident; l = separated_nonempty_list(COMMA, starident); SEMICOLON
-  { DVstruct(id, l) }
+  { loc_wrapper (DVstruct(id, l)) $startpos $endpos }
 
 decl_typ:
 | STRUCT; id = ident; LB; dv = decl_vars*; RB; SEMICOLON
-  { DTstruct(id, dv) }
+  { loc_wrapper (DTstruct(id, dv)) $startpos $endpos }
 
 decl_fct:
 | INT; id = ident; LP; l = separated_list(COMMA, param); RP; b = block
-  { DFint(id, l, b) }
+  { loc_wrapper (DFint(id, l, b)) $startpos $endpos }
 | STRUCT; id1 = ident; STAR; id2 = ident; LP; l = separated_list(COMMA, param); RP; b = block
-  { DFstruct(id1, id2, l, b) }
+  { loc_wrapper (DFstruct(id1, id2, l, b)) $startpos $endpos }
 
 param:
 | INT; id = ident
-  { Pint id }
+  { loc_wrapper (Pint id) $startpos $endpos }
 | STRUCT; id1 = ident; STAR; id2 = ident
-  { Pstruct(id1, id2) }
+  { loc_wrapper (Pstruct(id1, id2)) $startpos $endpos }
 
 expr:
 | x = INTEG
-  { Eint x }
+  { loc_wrapper (Eint x) $startpos $endpos }
 | id = ident
-  { Eident id }
+  { loc_wrapper (Eident id) $startpos $endpos }
 | e = expr; RIGHTARROW; id = ident
-  { Efetch(e, id) }
+  { loc_wrapper (Efetch(e, id)) $startpos $endpos }
 | id = ident; LP; l = separated_list(COMMA, expr); RP
-  { Ecall(id, l) }
+  { loc_wrapper (Ecall(id, l)) $startpos $endpos }
 | EXCL; e = expr
-  { Eunop(Unot, e) }
+  { loc_wrapper (Eunop(Unot, e)) $startpos $endpos }
 | MINUS; e = expr %prec unary_minus
-  { Eunop(Uneg, e) }
+  { loc_wrapper (Eunop(Uneg, e)) $startpos $endpos }
 | e1 = expr; op = operator; e2 = expr
-  { Ebinop(op, e1, e2) }
+  { loc_wrapper (Ebinop(op, e1, e2)) $startpos $endpos }
 | SIZEOF; LP; STRUCT; id = ident; RP
-  { Esizeof id }
+  { loc_wrapper (Esizeof id) $startpos $endpos }
 | LP; e = expr; RP
-  { Eterm e }
+  { loc_wrapper (Eterm e) $startpos $endpos }
 
 %inline operator:
 | EQUAL
@@ -117,23 +120,23 @@ expr:
 
 instruction:
 | SEMICOLON
-  { Ivoid }
+  { loc_wrapper Ivoid $startpos $endpos }
 | e = expr; SEMICOLON
-  { Iexpr e }
+  { loc_wrapper (Iexpr e) $startpos $endpos }
 | RETURN; e = expr; SEMICOLON
-  { Iret e }
+  { loc_wrapper (Iret e) $startpos $endpos }
 | IF; LP; e = expr; RP; s1 = instruction; ELSE; s2 = instruction
-  { Iifelse(e, s1, s2) }
+  { loc_wrapper (Iifelse(e, s1, s2)) $startpos $endpos }
 | IF; LP; e = expr; RP; s = instruction
-  { Iif(e, s) }
+  { loc_wrapper (Iif(e, s)) $startpos $endpos }
 | WHILE; LP; e = expr; RP; s = instruction
-  { Iwhile(e, s) }
+  { loc_wrapper (Iwhile(e, s)) $startpos $endpos }
 | b = block
-  { Iblock b }
+  { loc_wrapper (Iblock b) $startpos $endpos }
 
 block:
 | LB; l1 = decl_vars*; l2 = instruction*; RB
-  { Block(l1, l2) }
+  { loc_wrapper (Block(l1, l2)) $startpos $endpos }
 
 ident:
   id = IDENT { id }
