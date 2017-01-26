@@ -33,28 +33,18 @@ and tbinop =
   | TBeq | TBdbleq | TBneq | TBlt | TBlte | TBgt | TBgte
   | TBadd | TBsub | TBmul | TBdiv | TBand | TBor
 and tfile =
-  tdecl * typ
+  tdecl list
 and tdecl =
-  tdecld * typ
-and tdecld =
   | TDV of tdecl_vars | TDF of tdecl_fct | TDT of tdecl_typ
 and tdecl_vars =
-  tdecl_varsd * typ
-and tdecl_varsd =
   | TDVint of tident list
   | TDVstruct of tident * tident list
 and tdecl_fct =
-  tdecl_fctd * typ
-and tdecl_fctd =
   | TDFint of tident * tparam list * tblock
   | TDFstruct of tident * tident * tparam list * tblock
 and tdecl_typ =
-  tdecl_typd * typ
-and tdecl_typd =
   | TDTstruct of tident * tdecl_vars list
 and tparam =
-  tparamd * typ
-and tparamd =
   | TPint of tident
   | TPstruct of tident * tident
 and tinstr =

@@ -8,8 +8,8 @@ open Typer
 
 let usage = "usage: compiler [options] file.c"
 
-let parse_only = ref true
-let type_only = ref true
+let parse_only = ref false
+let type_only = ref false
 
 let spec =
   [
@@ -40,9 +40,13 @@ let () =
     let f = Parser.file Lexer.next_token lb in
     close_in c;
     if !parse_only then exit 0;
-    (*Typer.build_typing f;*)
+    let typed_ast = Typer.type_file f in
     if !type_only then exit 0
   with
+    | Typer.Typing_error(s, (l1, l2)) ->
+  report (l1, l2);
+  eprintf "typing error: %s@." s;
+  exit 1
     | Lexer.Lexing_error s ->
 	report (lexeme_start_p lb, lexeme_end_p lb);
 	eprintf "lexical error: %s@." s;
@@ -51,9 +55,6 @@ let () =
 	report (lexeme_start_p lb, lexeme_end_p lb);
 	eprintf "syntax error@.";
 	exit 1
-    | Typer.Typing_error s ->
-  eprintf "typing error: %s@." s;
-  exit 1
     | e ->
 	eprintf "Anomaly: %s\n@." (Printexc.to_string e);
 	exit 2
