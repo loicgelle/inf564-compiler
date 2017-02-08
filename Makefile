@@ -1,7 +1,7 @@
-all: compiler tests2
+all: compiler
 
 compiler:
-	ocamlbuild main.native
+	ocamlbuild main.native -Is mini-c
 
 clean:
 	rm -rf _build
