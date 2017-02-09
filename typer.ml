@@ -323,7 +323,7 @@ and type_instr gamma tau0 instr =
     let typed_expr = type_expr gamma e in
     let typ = (snd typed_expr) in
     if are_compat typ tau0 then
-      return_node (TIexpr(typed_expr))
+      return_node (TIret(typed_expr))
     else error ("instruction has type " ^ (str_of_typ typ)
       ^ ", incompatible with type expected " ^ (str_of_typ tau0)) loc
   | Iifelse(e, i1, i2) ->

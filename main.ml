@@ -5,6 +5,7 @@ open Format
 open Lexing
 open Parser
 open Typer
+open Pass1_to_rtl
 
 let usage = "usage: compiler [options] file.c"
 
@@ -41,7 +42,9 @@ let () =
     close_in c;
     if !parse_only then exit 0;
     let typed_ast = Typer.type_file f in
-    if !type_only then exit 0
+    if !type_only then exit 0;
+    let rtl_file = Pass1_to_rtl.transform_to_rtl typed_ast in
+    Rtltree.print_file Format.std_formatter rtl_file
   with
     | Typer.Typing_error(s, (l1, l2)) ->
   report (l1, l2);
