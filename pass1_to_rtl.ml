@@ -2,11 +2,13 @@ open Ast_typed
 open Rtltree
 open Ops
 
+(* Global tables *)
 let graph = ref Label.M.empty
 let local_env = Hashtbl.create 10
 let struct_env = Hashtbl.create 10
 let var_struct_type = Hashtbl.create 10
 
+(* Helper functions *)
 let generate i =
     let l = Label.fresh () in
     graph := Label.M.add l i !graph;
@@ -47,6 +49,27 @@ let handle_var_struct_type = function
 | TDVstruct(typ, l) ->
   List.iter (fun a -> Hashtbl.add var_struct_type a typ) l
 
+let param_to_reg = function
+| TPint(id) | TPstruct(_, id) ->
+  let r = Register.fresh () in
+  Hashtbl.add local_env id r;
+  r
+
+let rec decl_var_lst_to_lst acc = function
+| [] -> List.rev acc
+| (TDVint l)::h -> decl_var_lst_to_lst ((List.rev l)@acc) h
+| (TDVstruct(_, l))::h -> decl_var_lst_to_lst ((List.rev l)@acc) h
+
+let map_ignore_none mapfun lst =
+  let rec aux acc = function
+  | [] -> acc
+  | h::t ->
+    (match mapfun h with
+      | None -> aux acc t
+      | Some new_h -> aux (new_h::acc) t)
+  in List.rev (aux [] lst)
+
+(* Typed AST handlers *)
 let rec expr e destr destl = match fst e with
 | TEint i ->
   let instr = Econst(Int32.of_int i, destr, destl) in
@@ -109,7 +132,6 @@ let rec expr e destr destl = match fst e with
   let s = 8 * List.length (Hashtbl.find struct_env ids) in
   let instr = Econst(Int32.of_int s, destr, destl) in
   generate instr
-
 and args_to_instr nextl regl = function
 | [] -> nextl
 | h::t -> args_to_instr (expr h (List.hd regl) nextl) (List.tl regl) t
@@ -191,12 +213,6 @@ and block b destl retr exitl = match fst b with
   List.iter handle_var_struct_type dv_lst;
   handle_instr destl retr exitl (List.rev instr_lst))
 
-let param_to_reg = function
-| TPint(id) | TPstruct(_, id) ->
-  let r = Register.fresh () in
-  Hashtbl.add local_env id r;
-  r
-
 let deffun fun_decl =
   Hashtbl.reset local_env;
   let retr = Register.fresh () in
@@ -214,11 +230,6 @@ let deffun fun_decl =
       fun_exit = exitl;
       fun_body = !graph }
 
-let rec decl_var_lst_to_lst acc = function
-| [] -> List.rev acc
-| (TDVint l)::h -> decl_var_lst_to_lst ((List.rev l)@acc) h
-| (TDVstruct(_, l))::h -> decl_var_lst_to_lst ((List.rev l)@acc) h
-
 let handle_decl_struct = function
 | TDTstruct(typ, dvl) ->
   Hashtbl.add struct_env typ (decl_var_lst_to_lst [] dvl)
@@ -228,15 +239,6 @@ let defdecl decl = match decl with
   Some(deffun df)
 | TDV dv -> handle_var_struct_type dv; None
 | TDT ds -> handle_decl_struct ds; None
-
-let map_ignore_none mapfun lst =
-  let rec aux acc = function
-  | [] -> acc
-  | h::t ->
-    (match mapfun h with
-      | None -> aux acc t
-      | Some new_h -> aux (new_h::acc) t)
-  in List.rev (aux [] lst)
 
 let transform_to_rtl t_ast =
   { gvars = [];
