@@ -83,11 +83,23 @@ let rec expr e destr destl = match fst e with
   let next1 = expr e2 destr (generate instr) in
   expr (TEint 0, Type_int) r1 next1
 | TEbinop(TBeq, (TEfetch((TEident ids, _), idv), _), e2) ->
-  let r = Hashtbl.find local_env ids in
-  let r_e = Register.fresh () in
-  let instr = Estore(r_e, r, get_struct_shift ids idv, destl) in
-  let nextl = generate instr in
-  expr e2 r_e nextl
+  begin
+    try
+      let r = Hashtbl.find local_env ids in
+      let r_e = Register.fresh () in
+      let instr = Estore(r_e, r, get_struct_shift ids idv, destl) in
+      let nextl = generate instr in
+      expr e2 r_e nextl
+    with
+    | Not_found ->
+      let r = Register.fresh () in
+      let r_e = Register.fresh () in
+      let instr = Estore(r_e, r, get_struct_shift ids idv, destl) in
+      let nextl = generate instr in
+      let instrl = Eaccess_global(ids, r, nextl) in
+      let fstl = generate instrl in
+      expr e2 r_e fstl
+  end
 | TEbinop(TBeq, (TEident id, _), e2) ->
   begin
     try
@@ -110,7 +122,7 @@ let rec expr e destr destl = match fst e with
   begin
     try
       let r = Hashtbl.find local_env id in
-      let instr = Eload(r, 0, destr, destl) in
+      let instr = Embinop(Mmov, r, destr, destl) in
       generate instr
     with
     | Not_found ->
@@ -123,9 +135,19 @@ let rec expr e destr destl = match fst e with
   let calll = generate instr in
   args_to_instr calll reglst e_lst
 | TEfetch((TEident ids, _), idv) ->
-  let r = Hashtbl.find local_env ids in
-  let instr = Eload(r, get_struct_shift ids idv, destr, destl) in
-  generate instr
+  begin
+    try
+      let r = Hashtbl.find local_env ids in
+      let instr = Eload(r, get_struct_shift ids idv, destr, destl) in
+      generate instr
+    with
+    | Not_found ->
+      let r = Register.fresh () in
+      let instrl = Eload(r, get_struct_shift ids idv, destr, destl) in
+      let nextl = generate instrl in
+      let instrg = Eaccess_global(ids, r, nextl) in
+      generate instrg
+  end
 | TEfetch(_, _) ->
   failwith "left hanside is not a struct"
 | TEsizeof ids ->
