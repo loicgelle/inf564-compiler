@@ -7,6 +7,7 @@ let graph = ref Label.M.empty
 let local_env = Hashtbl.create 10
 let struct_env = Hashtbl.create 10
 let var_struct_type = Hashtbl.create 10
+let global_vars = ref []
 
 (* Helper functions *)
 let generate i =
@@ -45,9 +46,11 @@ let handle_decl_var = function
   List.iter add_var_to_env l
 
 let handle_var_struct_type = function
-| TDVint _ -> ()
+| TDVint lst ->
+  List.iter (fun a -> (global_vars := a::(!global_vars))) lst
 | TDVstruct(typ, l) ->
-  List.iter (fun a -> Hashtbl.add var_struct_type a typ) l
+  (List.iter (fun a -> (global_vars := a::(!global_vars))) l;
+  List.iter (fun a -> Hashtbl.add var_struct_type a typ) l)
 
 let param_to_reg = function
 | TPint(id) | TPstruct(_, id) ->
@@ -237,6 +240,7 @@ and block b destl retr exitl = match fst b with
 
 let deffun fun_decl =
   Hashtbl.reset local_env;
+  graph := Label.M.empty;
   let retr = Register.fresh () in
   let exitl = Label.fresh () in
   match fun_decl with
@@ -263,5 +267,6 @@ let defdecl decl = match decl with
 | TDT ds -> handle_decl_struct ds; None
 
 let transform_to_rtl t_ast =
-  { gvars = [];
-    funs = map_ignore_none defdecl t_ast }
+  let fun_lst = map_ignore_none defdecl t_ast in
+  { gvars = !global_vars;
+    funs = fun_lst }

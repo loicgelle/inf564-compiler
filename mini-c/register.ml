@@ -47,4 +47,3 @@ let tmp1, tmp2 =
   "%rbp", "%r11"
 
 let is_hw r = r.[0] = '%'
-
