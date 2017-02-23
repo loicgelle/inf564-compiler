@@ -45,7 +45,9 @@ let () =
     if !type_only then exit 0;
     let rtl_file = Pass1_to_rtl.transform_to_rtl typed_ast in
     let ertl_file = Pass2_to_ertl.transform_to_ertl rtl_file in
-    Ertltree.print_file Format.std_formatter ertl_file
+    List.iter
+      Pass3_liveness_analysis.liveness_then_print
+      ertl_file.Ertltree.funs
   with
     | Typer.Typing_error(s, (l1, l2)) ->
   report (l1, l2);
