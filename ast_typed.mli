@@ -9,12 +9,6 @@ type typ =
 | Type_void
 | Type_null
 
-type env = (string, env_decl) Hashtbl.t
-and env_decl =
-  | Env_var of typ
-  | Env_struct of env
-  | Env_fun of typ * typ list
-
 type texpr =
   texprd * typ
 and texprd =

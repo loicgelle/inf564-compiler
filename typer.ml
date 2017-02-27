@@ -3,7 +3,16 @@ open Ast_typed
 
 exception Typing_error of (string * (Lexing.position * Lexing.position))
 
+module VarState = Map.Make(String)
+
+type env_decl =
+  | Env_var of typ
+  | Env_struct of (env_decl VarState.t)
+  | Env_fun of typ * typ list
+
 let error s loc = raise (Typing_error(s, loc))
+
+let env = ref VarState.empty
 
 let lvalue = function
 | Eident _ | Efetch(_, _) -> true
@@ -61,7 +70,7 @@ let check_well_formed gamma tau loc = match tau with
 | Type_struct s ->
   begin
     try
-      match Hashtbl.find gamma s with
+      match VarState.find s gamma with
       | Env_struct _ -> ()
       | _ -> error ("type struct " ^ s ^ " not well formed in environment") loc
     with
@@ -71,7 +80,7 @@ let check_well_formed gamma tau loc = match tau with
 
 let env_has_identifier gamma name =
   try
-    Hashtbl.find gamma name; true
+    VarState.find name gamma; true
   with
   | Not_found -> false
 
@@ -95,11 +104,11 @@ let rec type_expr gamma expr =
       | Type_struct id ->
         begin
           try
-            match Hashtbl.find gamma id with
+            match VarState.find id gamma with
             | Env_struct st ->
               begin
                 try
-                  match Hashtbl.find st x with
+                  match VarState.find x st with
                   | Env_var typ -> (TEfetch(typed_expr, x), typ)
                   | _ -> error (x ^ " is not a record of struct " ^ id) loc
                 with
@@ -114,7 +123,7 @@ let rec type_expr gamma expr =
   | Esizeof id ->
     begin
       try
-        match Hashtbl.find gamma id with
+        match VarState.find id gamma with
         | Env_struct _ -> (TEsizeof id, Type_int)
         | _ -> error ("sizeof expects a structure as parameter") loc
       with
@@ -176,7 +185,7 @@ let rec type_expr gamma expr =
   | Ecall(id, el) ->
     begin
       try
-        match Hashtbl.find gamma id with
+        match VarState.find id gamma with
         | Env_fun(fun_type, lst) ->
             (TEcall(id, (aux_check_fun_args gamma id 1 loc el lst)), fun_type)
         | _ -> error (id ^ "is not a function, cannot apply") loc
@@ -191,7 +200,7 @@ let rec type_expr gamma expr =
     end
   | Eident id ->
     try
-      match Hashtbl.find gamma id with
+      match VarState.find id gamma with
       | Env_fun(_, _) ->
           error (id ^ "is a function, not an expression") loc
       | Env_struct _ -> error (id ^ "is a struct, not an expression") loc
@@ -222,67 +231,49 @@ let type_of_param p = match p with
 
 let extend_env_decl_vars decl_list gamma =
   begin
-    let add_var_to_gamma typ var =
-      Hashtbl.add gamma var (Env_var typ) in
-    let add_to_gamma elem = (
+    let add_var_to_gamma typ g var =
+      VarState.add var (Env_var typ) g in
+    let add_to_gamma g elem = (
       match elem with
       | DVint lst, _ ->
-        List.iter (add_var_to_gamma Type_int) lst
+        List.fold_left (add_var_to_gamma Type_int) g lst
       | DVstruct(s, lst), _ ->
-        List.iter (add_var_to_gamma (Type_struct s)) lst
+        List.fold_left (add_var_to_gamma (Type_struct s)) g lst
       ) in
-    List.iter add_to_gamma decl_list; ()
+    List.fold_left add_to_gamma gamma decl_list
   end
-
-let new_env_decl_vars decl_list gamma =
-  let new_gamma = Hashtbl.copy gamma in
-  extend_env_decl_vars decl_list new_gamma; new_gamma
 
 let extend_env_decl_struct decl_struct gamma =
   begin
     match decl_struct with
     | DTstruct(s, varlist), _ ->
-      let vardecl = Hashtbl.create (List.length varlist) in
-      let add_var_to_gamma typ var = (
-        Hashtbl.add vardecl var (Env_var typ)
+      let add_var_to_gamma typ g var = (
+        VarState.add var (Env_var typ) g
         ) in
-      let add_to_gamma elem = (
+      let add_to_gamma g elem = (
         match elem with
         | DVint lst, _ ->
-          List.iter (add_var_to_gamma Type_int) lst
+          List.fold_left (add_var_to_gamma Type_int) g lst
         | DVstruct(s, lst), _ ->
-          List.iter (add_var_to_gamma (Type_struct s)) lst
+          List.fold_left (add_var_to_gamma (Type_struct s)) g lst
         ) in
-      List.iter add_to_gamma varlist;
-      Hashtbl.add gamma s (Env_struct vardecl); ()
+      let new_vd = List.fold_left add_to_gamma (VarState.empty) varlist in
+      VarState.add s (Env_struct new_vd) gamma
   end
 
-let new_env_decl_struct decl_struct gamma =
-  let new_gamma = Hashtbl.copy gamma in
-  extend_env_decl_struct decl_struct new_gamma; new_gamma
-
-let new_env_decl_params decl_params gamma =
+let extend_env_decl_params decl_params gamma =
   begin
-    let new_gamma = Hashtbl.copy gamma in
-    let add_to_gamma param = (match fst param with
-      | Pint n -> Hashtbl.add new_gamma n (Env_var Type_int)
-      | Pstruct(n, s) -> Hashtbl.add new_gamma s (Env_var (Type_struct n))
+    let add_to_gamma g param = (match fst param with
+      | Pint n -> VarState.add n (Env_var Type_int) g
+      | Pstruct(n, s) -> VarState.add s (Env_var (Type_struct n)) g
       ) in
-    List.iter add_to_gamma decl_params;
-    new_gamma;
+    List.fold_left add_to_gamma gamma decl_params
   end
 
 let extend_env_fun_prototype typ name args gamma =
   begin
     let lstargs = List.map type_of_param args in
-    Hashtbl.add gamma name (Env_fun(typ, lstargs))
-  end
-
-let new_env_fun_prototype typ name args gamma =
-  begin
-    let new_gamma = Hashtbl.copy gamma in
-    extend_env_fun_prototype typ name args new_gamma;
-    new_gamma
+    VarState.add name (Env_fun(typ, lstargs)) gamma
   end
 
 let check_double_decl_var loc decl_list =
@@ -302,7 +293,7 @@ let rec type_block gamma tau0 block =
       (check_well_formed gamma (type_of_decl_var elem) loc) in
       List.iter check1 decl_list; (* raises exception if not well formed *)
       check_double_decl_var loc decl_list;
-      let new_gamma = new_env_decl_vars decl_list gamma in
+      let new_gamma = extend_env_decl_vars decl_list gamma in
       let type_decl elem = match elem with
       | DVint l, _ -> TDVint(l)
       | DVstruct(s, l), _ -> TDVstruct(s, l)
@@ -347,37 +338,37 @@ let typed_dv_of_decl_var = function
 | DVint l, _ -> TDVint l
 | DVstruct(s, l), _ -> TDVstruct(s, l)
 
-let type_decl_var gamma decl =
+let type_decl_var decl =
   begin
     let loc = snd decl in
     let varlst = (match (fst decl) with
     | DVint l -> l
     | DVstruct(_, l) -> l) in
     let checkvar v = (
-      if env_has_identifier gamma v then
+      if env_has_identifier !env v then
         error ("cannot define var " ^ v ^ ", already defined") loc
       ) in
     match find_double_item varlst with
     | Some v -> error ("cannot define variable " ^ v ^ " twice") loc;
     | None ->
       List.iter checkvar varlst;
-      check_well_formed gamma (type_of_decl_var decl) loc;
-      extend_env_decl_vars [decl] gamma;
+      check_well_formed !env (type_of_decl_var decl) loc;
+      env := extend_env_decl_vars [decl] !env;
       typed_dv_of_decl_var decl;
   end
 
-let type_decl_struct gamma decl =
+let type_decl_struct decl =
   begin
     let loc = snd decl in
-    let new_gamma = new_env_decl_struct decl gamma in
+    let new_gamma = extend_env_decl_struct decl !env in
     let check elem =
       (check_well_formed new_gamma (type_of_decl_var elem) loc) in
     match fst decl with
     | DTstruct(n, dvlist) ->
-      if env_has_identifier gamma n then
+      if env_has_identifier !env n then
         error ("cannot define struct " ^ n ^ ", already defined") loc;
       check_double_decl_var loc dvlist;
-      List.iter check dvlist; extend_env_decl_struct decl gamma;
+      List.iter check dvlist; env := new_gamma;
       let tdvlist = List.map typed_dv_of_decl_var dvlist in
       TDTstruct(n, tdvlist)
   end
@@ -386,42 +377,41 @@ let typed_param_of_param = function
 | Pint n, _ -> TPint n
 | Pstruct(n, s), _ -> TPstruct(n, s)
 
-let type_decl_fun gamma decl =
+let type_decl_fun decl =
   begin
     let loc = snd decl in
     let (typ, name, args, block) = (match fst decl with
     | DFint(n, a, b) -> Type_int, n, a, b
     | DFstruct(s, n, a, b) -> (Type_struct s), n, a, b) in
-    if env_has_identifier gamma name then
+    if env_has_identifier !env name then
       error ("cannot define function " ^ name ^ ", already defined") loc;
     let check_param elem =
-      (check_well_formed gamma (type_of_param elem) loc) in
+      (check_well_formed !env (type_of_param elem) loc) in
     List.iter check_param (List.map (fun (a,b) -> a) args);
     let striped_args = (List.map (fun (a,b) -> a) args) in
-    let new_env = new_env_fun_prototype typ name striped_args gamma in
-    let test_env = new_env_decl_params args new_env in
+    let new_env = extend_env_fun_prototype typ name striped_args !env in
+    let test_env = extend_env_decl_params args new_env in
     let typed_block = type_block test_env typ block in
-    extend_env_fun_prototype typ name striped_args gamma;
+    env := new_env;
     let typed_args = List.map typed_param_of_param args in
     match fst decl with
     | DFint(n, _, _) -> TDFint(n, typed_args, typed_block)
     | DFstruct(s, n, _, _) -> TDFstruct(s, n, typed_args, typed_block)
   end
 
-let type_decl gamma decl = match fst decl with
-| DV dv -> TDV (type_decl_var gamma dv)
-| DF df -> TDF (type_decl_fun gamma df)
-| DT dt -> TDT (type_decl_struct gamma dt)
+let type_decl decl = match fst decl with
+| DV dv -> TDV (type_decl_var dv)
+| DF df -> TDF (type_decl_fun df)
+| DT dt -> TDT (type_decl_struct dt)
 
 let init_env () =
-  let env = Hashtbl.create 100 in
-  extend_env_fun_prototype Type_int "putchar" [Pint "c"] env;
-  extend_env_fun_prototype Type_void "sbrk" [Pint "n"] env;
-  env
+  let new_env1 = extend_env_fun_prototype Type_int "putchar" [Pint "c"] !env in
+  let new_env2 = extend_env_fun_prototype Type_void "sbrk" [Pint "n"] new_env1 in
+  env := new_env2
 
-let check_main_fun gamma loc =
+let check_main_fun loc =
   try
-    match Hashtbl.find gamma "main" with
+    match VarState.find "main" !env with
     | Env_fun(t, lst) ->
       if not (t = Type_int) then
         error "main function should have return type int" loc;
@@ -433,7 +423,7 @@ let check_main_fun gamma loc =
 
 let type_file file =
   begin
-    let env = init_env () in
-    let typed_decl_list = List.map (type_decl env) (fst file) in
-    check_main_fun env (snd file); typed_decl_list;
+    init_env ();
+    let typed_decl_list = List.map type_decl (fst file) in
+    check_main_fun (snd file); typed_decl_list;
   end
