@@ -45,7 +45,11 @@ let () =
     if !type_only then exit 0;
     let rtl_file = Pass1_to_rtl.transform_to_rtl typed_ast in
     let ertl_file = Pass2_to_ertl.transform_to_ertl rtl_file in
-    ()
+    (*let ltl_file = Pass3_to_ltl.transform_to_ltl ertl_file in
+    Ltltree.print_file Format.std_formatter ltl_file*)
+    List.iter
+      Interference_graph.test
+      ertl_file.Ertltree.funs
   with
     | Typer.Typing_error(s, (l1, l2)) ->
   report (l1, l2);

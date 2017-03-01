@@ -1,7 +1,7 @@
 all: compiler
 
 compiler:
-	ocamlbuild main.native -Is mini-c
+	ocamlbuild main.native -Is mini-c -Is pass3_utils
 
 clean:
 	rm -rf _build
