@@ -61,8 +61,8 @@ let handle_instr inp_l = function
 | Rtltree.Embinop(Mdiv, r1, r2, l) ->
   let l1 = Label.fresh () in
   let l2 = Label.fresh () in
-  (push_instr inp_l (Embinop(Mmov, r2, Register.rax, l1));
-  push_instr l1 (Embinop(Mdiv, r1, Register.rax, l2));
+  (push_instr inp_l (Embinop(Mmov, r1, Register.rax, l1));
+  push_instr l1 (Embinop(Mdiv, Register.rax, r2, l2));
   push_instr l2 (Embinop(Mmov, Register.rax, r2, l)))
 | Rtltree.Embinop(op, r1, r2, l) ->
   push_instr inp_l (Embinop(op, r1, r2, l))
