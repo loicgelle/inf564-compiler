@@ -128,8 +128,6 @@ let choose_register_color todo_map coloring ig =
     end in
   choose_register_color_aux None None None todo_map
 
-
-(* val color: igraph -> coloring * int *)
 let color ig =
   let build_init_todo ig =
     let map1 = Register.M.filter (fun k _ -> Register.is_pseudo k) ig in
@@ -163,11 +161,3 @@ let color ig =
       end
   done;
   (!coloring, !nb_to_spill)
-
-let test func =
-  let fmt = Format.std_formatter in
-  let li = Liveness_analysis.liveness func.Ertltree.fun_body in
-  let ig = make li in
-  let cm = color ig in
-  (fprintf fmt "---\nIn func %a\n---\n" Format.pp_print_string func.Ertltree.fun_name;
-  print_color (fst cm))

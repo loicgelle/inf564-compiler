@@ -35,7 +35,7 @@ let rec get_infos_then_goto nextl lst1 lst2 = match lst1, lst2 with
   let l = Label.fresh () in
   (push_instr l (Eget_param(List.length lst2, h, nextl));
   get_infos_then_goto l [] t)
-  (* IMPORTANT note to myself: if n (nb of args) > 6, then the given
+  (* IMPORTANT note: if n (nb of args) > 6, then the given
   index to Egetparam is n - i + 1
   if we denote by i the index of the param in x1, ..., xn *)
 | h1::t1, h2::t2 ->

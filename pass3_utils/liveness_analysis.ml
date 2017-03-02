@@ -81,13 +81,3 @@ let liveness cfg =
   fill_tbl_pred ();
   fill_tbl_kildall ();
   build_info_map ()
-
-let liveness_then_print func =
-  let fmt = Format.std_formatter in
-  let cfg = func.fun_body in
-  let info = liveness cfg in
-  let print_label_info k instr =
-    let info_l = Label.M.find k info in
-    print_live_info fmt k instr info_l in
-  fprintf fmt "---\nIn func %a\n---\n" Format.pp_print_string func.fun_name;
-  Ertltree.visit print_label_info cfg func.fun_entry
