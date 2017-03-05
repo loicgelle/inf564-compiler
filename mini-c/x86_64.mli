@@ -142,6 +142,7 @@ val reg: 'size register -> 'size operand
   (** registre *)
 val operand: Ltltree.operand -> 'size operand
   (** Ltltree operand *)
+val operand_to_8bit: Ltltree.operand -> 'size operand
 val shifted_register: Ltltree.register -> int -> 'size operand
 val ind: ?ofs:int -> ?index:'size1 register -> ?scale:int ->
   'size2 register -> [>] operand
@@ -169,7 +170,7 @@ val movslq: [`L] operand -> [`Q] register -> text
   (** 8->64 bit, avec extension de signe *)
 val movzbw: [`B] operand -> [`W] register -> text
 val movzbl: [`B] operand -> [`L] register -> text
-val movzbq: [`B] operand -> [`Q] register -> text
+val movzbq: [`B] operand -> [`Q] operand -> text
 val movzwl: [`W] operand -> [`L] register -> text
 val movzwq: [`W] operand -> [`Q] register -> text
   (** 8->64 bit, avec extension par zéro *)

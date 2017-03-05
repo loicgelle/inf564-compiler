@@ -31,19 +31,11 @@ let rtlbinop_of_binop = function
 | TBdiv -> Mdiv
 | TBdbleq -> Msete
 | TBneq -> Msetne
-| TBlt -> Msetl
-| TBlte -> Msetle
-| TBgt -> Msetg
-| TBgte -> Msetge
+| TBlt -> Msetge (* inequalities are reversed to respect cmpq semantics *)
+| TBlte -> Msetg
+| TBgt -> Msetle
+| TBgte -> Msetl
 | _ -> failwith "binop or and and not supported in expression"
-
-let add_var_to_env id =
-  let r = Register.fresh () in
-  Hashtbl.add local_env id r
-
-let handle_decl_var = function
-| TDVint l | TDVstruct(_, l) ->
-  List.iter add_var_to_env l
 
 let handle_var_struct_type b_declare_global = function
 | TDVint lst ->
@@ -196,12 +188,12 @@ let rec condition e truel falsel = match fst e with
     | _ ->
       let r = Register.fresh () in
       expr e r
-      (generate (Emubranch (Mjnz, r, falsel, truel)))
+      (generate (Emubranch (Mjnz, r, truel, falsel)))
   end
 | _ ->
   let r = Register.fresh () in
   expr e r
-  (generate (Emubranch (Mjnz, r, falsel, truel)))
+  (generate (Emubranch (Mjnz, r, truel, falsel)))
 
 let rec handle_instr destl retr exitl = function
 | h::[] ->
@@ -234,9 +226,26 @@ and stmt s destl retr exitl = match fst s with
   end
 and block b destl retr exitl = match fst b with
 | TBlock(dv_lst, instr_lst) ->
-  (List.iter handle_decl_var dv_lst;
-  List.iter (handle_var_struct_type false) dv_lst;
-  handle_instr destl retr exitl (List.rev instr_lst))
+  let restore_env = Hashtbl.create 10 in
+  let add_var_to_env id =
+    begin
+      if Hashtbl.mem local_env id then
+        Hashtbl.add restore_env id (Hashtbl.find local_env id);
+      let r = Register.fresh () in
+      Hashtbl.add local_env id r
+    end in
+  let handle_decl_var = function
+  | TDVint l | TDVstruct(_, l) ->
+    List.iter add_var_to_env l in
+  begin
+    let retl = (List.iter handle_decl_var dv_lst;
+    List.iter (handle_var_struct_type false) dv_lst;
+    handle_instr destl retr exitl (List.rev instr_lst)) in
+    begin
+      Hashtbl.iter (fun k v -> Hashtbl.replace local_env k v) restore_env;
+      retl
+    end
+  end
 
 let deffun fun_decl =
   Hashtbl.reset local_env;

@@ -14,6 +14,8 @@ val is_pseudo: t -> bool
 val print: Format.formatter -> t -> unit
   (** fonction d'impression *)
 
+val print_8bit: Format.formatter -> t -> unit
+
 module M : Map.S with type key = t
 type 'a map = 'a M.t
   (** dictionnaires dont les clés sont des registres *)
@@ -47,6 +49,7 @@ val allocatable : set
 
 val tmp1: t
 val tmp2: t
+val al: t
   (** deux registres ne faisant pas partie de [allocatable],
       que l'on peut donc utiliser pour compiler des instructions non atomiques
       (par exemple un double accès à la mémoire) *)

@@ -29,14 +29,17 @@ let push_instr label instr =
   graph := Label.M.add label instr !graph
 
 let handle_instr c frame inpl instr =
-  let spill_index_to_shift i = 8 * (frame.f_locals - i + 1) in
+  let spill_index_to_shift i = 8 * (frame.f_locals - i) in
   let param_index_to_shift i = 8 * (frame.f_locals + 1 + i) in
+  let compute_shift = function
+  | Reg r -> Reg r
+  | Spilled n -> Spilled (spill_index_to_shift n) in
   match instr with
   |	Ertltree.Egoto(l) -> push_instr inpl (Egoto(l))
   |	Ertltree.Ereturn -> push_instr inpl Ereturn
   |	Ertltree.Ecall(id, i, l) -> push_instr inpl (Ecall(id, l))
   | Ertltree.Econst(n, r, l) ->
-    push_instr inpl (Econst (n, lookup c r, l))
+    push_instr inpl (Econst (n, compute_shift (lookup c r), l))
   | Ertltree.Eload(r1, i, r2, l) ->
     begin
       match lookup c r1, lookup c r2 with
@@ -107,11 +110,11 @@ let handle_instr c frame inpl instr =
         let nextl = Label.fresh () in
         let shift =
           match instr with
-          | Ertltree.Ealloc_frame _ -> Int32.of_int (-8 * m)
-          | Ertltree.Edelete_frame _ -> Int32.of_int (8 * m)
+          | Ertltree.Ealloc_frame _ -> Int32.of_int (-8 * (m+1))
+          | Ertltree.Edelete_frame _ -> Int32.of_int (8 * (m+1))
           | _ -> Int32.zero in
         (push_instr inpl (Econst(shift, Reg Register.tmp1, nextl));
-        push_instr inpl (Embinop(Madd, Reg Register.tmp1, Reg Register.rsp, l)))
+        push_instr nextl (Embinop(Madd, Reg Register.tmp1, Reg Register.rsp, l)))
       end
   | Ertltree.Eget_param(i, r, l) ->
     begin

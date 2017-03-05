@@ -22,5 +22,5 @@ tests3:
 
 docker-build: clean clean-tests
 	docker build -t compiler-base docker-base
-	docker build -t compiler .
+	docker build --no-cache=true -t compiler .
 	docker run compiler

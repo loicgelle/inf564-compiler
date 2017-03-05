@@ -90,6 +90,9 @@ let reg r = fun fmt () -> fprintf fmt "%s" r
 let operand op = fun fmt () -> match op with
 | Ltltree.Reg r -> fprintf fmt "%a" Register.print r
 | Ltltree.Spilled n -> fprintf fmt "%d(%%rsp)" n
+let operand_to_8bit op = fun fmt () -> match op with
+| Ltltree.Reg r -> fprintf fmt "%a" Register.print_8bit r
+| Ltltree.Spilled _ -> failwith "cannot use spilled register for set* instr"
 let shifted_register r i = fun fmt () -> fprintf fmt "%d(%a)" i Register.print r
 let imm i = fun fmt () -> fprintf fmt "$%i" i
 let imm32 i = fun fmt () -> fprintf fmt "$%ld" i
@@ -150,7 +153,7 @@ let movslq a b = ins "movslq %a, %s" a () b
 
 let movzbw a b = ins "movzbw %a, %s" a () b
 let movzbl a b = ins "movzbl %a, %s" a () b
-let movzbq a b = ins "movzbq %a, %s" a () b
+let movzbq a b = ins "movzbq %a, %a" a () b ()
 let movzwl a b = ins "movzwl %a, %s" a () b
 let movzwq a b = ins "movzwq %a, %s" a () b
 

@@ -13,6 +13,27 @@ let set_of_list l = List.fold_right S.add l S.empty
 
 let print = Format.pp_print_string
 
+let print_8bit fmt r =
+  let newr = match r with
+  | "%rax" -> "%al"
+  | "%rbx" -> "%bl"
+  | "%rcx" -> "%cl"
+  | "%rdx" -> "%dl"
+  | "%rsi" -> "%sil"
+  | "%rdi" -> "%dil"
+  | "%rbp" -> "%bpl"
+  | "%rsp" -> "%spl"
+  | "%r8" -> "%r8b"
+  | "%r9" -> "%r9b"
+  | "%r10" -> "%r10b"
+  | "%r11" -> "%r11b"
+  | "%r12" -> "%r12b"
+  | "%r13" -> "%r13b"
+  | "%r14" -> "%r14b"
+  | "%r15" -> "%r15b"
+  | _ -> failwith "register does not exist" in
+  Format.pp_print_string fmt newr
+
 let print_set fmt s =
   Pp.print_list Pp.comma Format.pp_print_string fmt (S.elements s)
 
@@ -45,5 +66,7 @@ let rsp =
 
 let tmp1, tmp2 =
   "%rbp", "%r11"
+
+let al = "%al"
 
 let is_hw r = r.[0] = '%'
