@@ -3,15 +3,13 @@ all: compiler
 compiler:
 	ocamlbuild main.native -Is mini-c -Is pass3_utils
 
-clean:
-	rm -rf _build
-	rm -f main.native
-	rm -rf tests/exec/*.s
-	rm -rf tests/exec-fail/*.s
-
 clean-tests:
 	rm -rf tests/exec/*.s
 	rm -rf tests/exec-fail/*.s
+
+clean: clean-tests
+	rm -rf _build
+	rm -f main.native
 
 tests1:
 	cd tests; ./run -1 ../main.native
@@ -21,3 +19,8 @@ tests2:
 
 tests3:
 	cd tests; ./run -3 ../main.native
+
+docker-build: clean clean-tests
+	docker build -t compiler-base docker-base
+	docker build -t compiler .
+	docker run compiler

@@ -44,11 +44,17 @@ let () =
     let typed_ast = Typer.type_file f in
     if !type_only then exit 0;
     let rtl_file = Pass1_to_rtl.transform_to_rtl typed_ast in
-    let ertl_file = Pass2_to_ertl.transform_to_ertl rtl_file in
-    let ltl_file = Pass3_to_ltl.transform_to_ltl ertl_file in
-    let assembly_file = Pass4_to_assembly.transform_to_assembly ltl_file in
-    let out_file = ((Filename.chop_extension file) ^ ".s") in
-    X86_64.print_in_file out_file assembly_file
+    let ertl_file = Pass2_to_ertl.transform_to_ertl rtl_file in begin
+      Ertltree.print_file Format.std_formatter ertl_file;
+      let ltl_file = Pass3_to_ltl.transform_to_ltl ertl_file in begin
+        Ltltree.print_file Format.std_formatter ltl_file;
+        let assembly_file = Pass4_to_assembly.transform_to_assembly ltl_file in begin
+          X86_64.print_program Format.std_formatter assembly_file;
+          let out_file = ((Filename.chop_extension file) ^ ".s") in
+          X86_64.print_in_file out_file assembly_file
+        end
+      end
+    end
   with
     | Typer.Typing_error(s, (l1, l2)) ->
   report (l1, l2);

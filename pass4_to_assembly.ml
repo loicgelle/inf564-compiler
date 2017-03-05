@@ -11,10 +11,13 @@ let labels = Hashtbl.create 17
 let need_label l = Hashtbl.add labels l ()
 
 let rec lin g l =
+  fprintf std_formatter "%a : CALLED\n" Label.print l;
   if not (Hashtbl.mem visited l) then begin
+    fprintf std_formatter "%a : not visited\n" Label.print l;
     Hashtbl.add visited l ();
     instr g l (Label.M.find l g)
   end else begin
+    fprintf std_formatter "%a : visited\n" Label.print l;
     need_label l;
     emit_wl (jmp (l :> string))
   end
@@ -67,12 +70,12 @@ and instr g l = function
   emit l (call ("_" ^ id)); lin g l1
 | Ltltree.Egoto(l1) ->
   if Hashtbl.mem visited l1 then emit l (jmp (l1 :> string))
-  else lin g l1
+  else (Hashtbl.remove visited l; lin g l1)
 | Ltltree.Emubranch(op, r, l1_1, l1_2) ->
   let reg = Ltltree.Reg r in
   if not (Hashtbl.mem visited l1_2) then begin
     let newl = Label.fresh () in
-    match op with
+    (match op with
     | Mjz ->
       (emit l (cmpq (imm32 Int32.zero) (operand reg));
       emit newl (je (l1_1 :> string)))
@@ -84,12 +87,12 @@ and instr g l = function
       emit newl (jle (l1_1 :> string)))
     |	Mjgi(i) ->
       (emit l (cmpq (imm32 i) (operand reg));
-      emit newl (jg (l1_1 :> string)));
+      emit newl (jg (l1_1 :> string))));
     lin g l1_2; lin g l1_1
   end
   else if not (Hashtbl.mem visited l1_1) then begin
     let newl = Label.fresh () in
-    match op with
+    (match op with
     | Mjz ->
       (emit l (cmpq (imm32 Int32.zero) (operand reg));
       emit newl (jne (l1_2 :> string)))
@@ -101,12 +104,12 @@ and instr g l = function
       emit newl (jg (l1_2 :> string)))
     |	Mjgi(i) ->
       (emit l (cmpq (imm32 i) (operand reg));
-      emit newl (jle (l1_2 :> string)));
+      emit newl (jle (l1_2 :> string))));
     lin g l1_1; lin g l1_2
   end
   else begin
     let newl = Label.fresh () in
-    match op with
+    (match op with
     | Mjz ->
       (emit l (cmpq (imm32 Int32.zero) (operand reg));
       emit newl (je (l1_1 :> string)))
@@ -118,7 +121,7 @@ and instr g l = function
       emit newl (jle (l1_1 :> string)))
     |	Mjgi(i) ->
       (emit l (cmpq (imm32 i) (operand reg));
-      emit newl (jg (l1_1 :> string)));
+      emit newl (jg (l1_1 :> string))));
     emit (Label.fresh ()) (jmp (l1_2 :> string))
   end
 | Ltltree.Embbranch(op, r1, r2, l1_1, l1_2) ->
@@ -128,30 +131,30 @@ and instr g l = function
     emit l (cmpq (operand reg2) (operand reg1));
     if not (Hashtbl.mem visited l1_2) then begin
       let newl = Label.fresh () in
-      match op with
+      (match op with
       | Mjl -> (emit newl (jl (l1_1 :> string)))
-      | Mjle -> (emit newl (jle (l1_1 :> string)));
+      | Mjle -> (emit newl (jle (l1_1 :> string))));
       lin g l1_2; lin g l1_1
     end
     else if not (Hashtbl.mem visited l1_1) then begin
       let newl = Label.fresh () in
-      match op with
+      (match op with
       | Mjl -> (emit newl (jge (l1_2 :> string)))
-      | Mjle -> (emit newl (jg (l1_2 :> string)));
+      | Mjle -> (emit newl (jg (l1_2 :> string))));
       lin g l1_1; lin g l1_2
     end
     else begin
       let newl = Label.fresh () in
-      match op with
+      (match op with
       | Mjl -> emit newl (jl (l1_1 :> string))
-      |	Mjle -> emit newl (jle (l1_1 :> string));
+      |	Mjle -> emit newl (jle (l1_1 :> string)));
       emit (Label.fresh ()) (jmp (l1_2 :> string))
     end
   end
 | Ltltree.Eaccess_global(id, r, l1) ->
   emit l (movq (ilab id) (operand (Ltltree.Reg r))); lin g l1
 | Ltltree.Eassign_global(r, id, l1) ->
-  emit l (movq (operand (Ltltree.Reg r)) (ilab id)); lin g l1
+  emit l (movq (operand (Ltltree.Reg r)) (lab id)); lin g l1
 | Ltltree.Eload(r1, i, r2, l1) ->
   emit l (movq (shifted_register r1 i) (operand (Ltltree.Reg r2))); lin g l1
 | Ltltree.Estore(r1, r2, i, l1) ->
