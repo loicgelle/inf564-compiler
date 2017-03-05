@@ -19,7 +19,8 @@
 /* D�finitions des priorit�s et associativit�s des tokens */
 
 %right EQUAL
-%left OR AND DBLEQ NEQ LT LTE GT GTE PLUS MINUS STAR DIV
+%left OR AND DBLEQ NEQ LT LTE GT GTE PLUS MINUS
+%left STAR DIV
 %right EXCL unary_minus
 %left RIGHTARROW
 

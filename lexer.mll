@@ -77,8 +77,12 @@ rule next_tokens = parse
   | "&&"    { [AND] }
   | "||"    { [OR] }
   | integer as s
-            { try [INTEG (int_of_string s)]
-              with _ -> raise (Lexing_error ("constant too large: " ^ s)) }
+            { if s.[0] = '0' && (String.length s) > 1 then
+                try [INTEG (int_of_string ("0o" ^ (String.sub s 1 ((String.length s) - 1))))]
+                with _ -> raise (Lexing_error ("constant too large: " ^ s))
+              else
+                try [INTEG (int_of_string s)]
+                with _ -> raise (Lexing_error ("constant too large: " ^ s)) }
   | integerChar as c
             { try [INTEG (Char.code c.[1])]
               with _ -> raise (Lexing_error ("unable to cast to int: " ^ c)) }

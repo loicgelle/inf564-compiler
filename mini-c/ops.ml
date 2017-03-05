@@ -20,6 +20,8 @@ type mbinop =
   | Msetle
   | Msetg
   | Msetge
+  | Mand (* added operands *)
+  | Mor
 
 (** opérations de branchement unaires *)
 type mubranch =
@@ -54,6 +56,8 @@ let print_mbinop fmt = function
   | Msetle -> fprintf fmt "setle"
   | Msetg -> fprintf fmt "setg"
   | Msetge -> fprintf fmt "setge"
+  | Mand -> fprintf fmt "and"
+  | Mor -> fprintf fmt "or"
 
 let print_mubranch fmt = function
   | Mjz -> fprintf fmt "jz"
@@ -64,5 +68,3 @@ let print_mubranch fmt = function
 let print_mbbranch fmt = function
   | Mjl -> fprintf fmt "jl"
   | Mjle -> fprintf fmt "jle"
-
-

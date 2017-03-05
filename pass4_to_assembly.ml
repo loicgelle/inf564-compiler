@@ -27,11 +27,11 @@ and instr g l = function
     | Maddi(i) -> emit l (addq (imm32 i) (operand r)); lin g l1
     | Msetei(i) ->
       emit l (cmpq (imm32 i) (operand r));
-      emit (Label.fresh ()) (sete (operand r));
+      emit (Label.fresh ()) (sete (operand_to_8bit r));
       emit (Label.fresh ()) (movzbq (operand_to_8bit r) (operand r)); lin g l1
     | Msetnei(i) ->
       emit l (cmpq (imm32 i) (operand r));
-      emit (Label.fresh ()) (setne (operand r));
+      emit (Label.fresh ()) (setne (operand_to_8bit r));
       emit (Label.fresh ()) (movzbq (operand_to_8bit r) (operand r)); lin g l1
   end
 |	Ltltree.Embinop(op, r1, r2, l1) ->
@@ -42,6 +42,18 @@ and instr g l = function
     | Msub -> emit l (subq (operand r1) (operand r2)); lin g l1
     | Mmul -> emit l (imulq (operand r1) (operand r2)); lin g l1
     | Mdiv -> emit l (idivq (operand r2)); lin g l1
+    | Mand | Mor ->
+      emit l (cmpq (imm32 Int32.zero) (operand r1));
+      emit (Label.fresh ()) (setne (operand_to_8bit r1));
+      emit (Label.fresh ()) (movzbq (operand_to_8bit r1) (operand r1));
+      emit (Label.fresh ()) (cmpq (imm32 Int32.zero) (operand r2));
+      emit (Label.fresh ()) (setne (operand_to_8bit r2));
+      emit (Label.fresh ()) (movzbq (operand_to_8bit r2) (operand r2));
+      (match op with
+        | Mand -> emit (Label.fresh ()) (andq (operand r1) (operand r2))
+        | Mor -> emit (Label.fresh ()) (orq (operand r1) (operand r2))
+        | _ -> failwith "not handled here");
+      lin g l1
     | Msete ->
       emit l (cmpq (operand r1) (operand r2));
       emit (Label.fresh ()) (sete (operand_to_8bit r2));
@@ -89,10 +101,10 @@ and instr g l = function
       emit newl (jne (l1_1 :> string)))
     |	Mjlei(i) ->
       (emit l (cmpq (imm32 i) (operand reg));
-      emit newl (jg (l1_1 :> string)))
+      emit newl (jle (l1_1 :> string)))
     |	Mjgi(i) ->
       (emit l (cmpq (imm32 i) (operand reg));
-      emit newl (jle (l1_1 :> string))));
+      emit newl (jg (l1_1 :> string))));
     lin g l1_2; lin g l1_1
   end
   else if not (Hashtbl.mem visited l1_1) then begin
@@ -106,10 +118,10 @@ and instr g l = function
       emit newl (je (l1_2 :> string)))
     |	Mjlei(i) ->
       (emit l (cmpq (imm32 i) (operand reg));
-      emit newl (jle (l1_2 :> string)))
+      emit newl (jg (l1_2 :> string)))
     |	Mjgi(i) ->
       (emit l (cmpq (imm32 i) (operand reg));
-      emit newl (jg (l1_2 :> string))));
+      emit newl (jle (l1_2 :> string))));
     lin g l1_1; lin g l1_2
   end
   else begin
@@ -123,10 +135,10 @@ and instr g l = function
       emit newl (jne (l1_1 :> string)))
     |	Mjlei(i) ->
       (emit l (cmpq (imm32 i) (operand reg));
-      emit newl (jg (l1_1 :> string)))
+      emit newl (jle (l1_1 :> string)))
     |	Mjgi(i) ->
       (emit l (cmpq (imm32 i) (operand reg));
-      emit newl (jle (l1_1 :> string))));
+      emit newl (jg (l1_1 :> string))));
     emit (Label.fresh ()) (jmp (l1_2 :> string))
   end
 | Ltltree.Embbranch(op, r1, r2, l1_1, l1_2) ->
@@ -137,22 +149,22 @@ and instr g l = function
     if not (Hashtbl.mem visited l1_2) then begin
       let newl = Label.fresh () in
       (match op with
-      | Mjl -> (emit newl (jge (l1_1 :> string)))
-      | Mjle -> (emit newl (jg (l1_1 :> string))));
+      | Mjl -> (emit newl (jl (l1_1 :> string)))
+      | Mjle -> (emit newl (jle (l1_1 :> string))));
       lin g l1_2; lin g l1_1
     end
     else if not (Hashtbl.mem visited l1_1) then begin
       let newl = Label.fresh () in
       (match op with
-      | Mjl -> (emit newl (jl (l1_2 :> string)))
-      | Mjle -> (emit newl (jle (l1_2 :> string))));
+      | Mjl -> (emit newl (jge (l1_2 :> string)))
+      | Mjle -> (emit newl (jg (l1_2 :> string))));
       lin g l1_1; lin g l1_2
     end
     else begin
       let newl = Label.fresh () in
       (match op with
-      | Mjl -> emit newl (jge (l1_1 :> string))
-      |	Mjle -> emit newl (jg (l1_1 :> string)));
+      | Mjl -> emit newl (jl (l1_1 :> string))
+      |	Mjle -> emit newl (jle (l1_1 :> string)));
       emit (Label.fresh ()) (jmp (l1_2 :> string))
     end
   end
@@ -178,7 +190,8 @@ let handle_fun asm func =
     lin func.Ltltree.fun_body func.Ltltree.fun_entry;
     let new_code = List.map map_func (List.rev !code) in
     (*let new_code = List.map map_func (List.rev (List.filter filter_func !code)) in*)
-    List.fold_left (++) (label func.Ltltree.fun_name) new_code
+    let new_asm = List.fold_left (++) (label func.Ltltree.fun_name) new_code in
+    (++) asm new_asm
   end
 
 let build_data_segment ds =

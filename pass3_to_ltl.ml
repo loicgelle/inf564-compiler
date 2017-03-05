@@ -94,7 +94,7 @@ let handle_instr c frame inpl instr =
     end
   | Ertltree.Embinop(op, r1, r2, l) ->
     begin
-      let c_reg2 = lookup c r2 in
+      let c_reg2 = compute_shift (lookup c r2) in
       match lookup c r1 with
       | Reg reg1 -> push_instr inpl (Embinop(op, Reg reg1, c_reg2, l))
       | Spilled index1 ->

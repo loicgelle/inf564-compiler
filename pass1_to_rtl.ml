@@ -26,7 +26,6 @@ let get_struct_shift ids idv =
 
 let rtlbinop_of_binop = function
 | TBadd -> Madd
-| TBsub -> Msub
 | TBmul -> Mmul
 | TBdiv -> Mdiv
 | TBdbleq -> Msete
@@ -35,7 +34,9 @@ let rtlbinop_of_binop = function
 | TBlte -> Msetg
 | TBgt -> Msetle
 | TBgte -> Msetl
-| _ -> failwith "binop or and and not supported in expression"
+| TBand -> Mand
+| TBor -> Mor
+| _ -> failwith "operands not handled here"
 
 let handle_var_struct_type b_declare_global = function
 | TDVint lst ->
@@ -49,6 +50,9 @@ let param_to_reg = function
   let r = Register.fresh () in
   Hashtbl.add local_env id r;
   r
+
+let param_to_id = function
+| TPint(id) | TPstruct(_, id) -> id
 
 let rec decl_var_lst_to_lst acc = function
 | [] -> List.rev acc
@@ -70,42 +74,47 @@ let rec expr e destr destl = match fst e with
   let instr = Econst(Int32.of_int i, destr, destl) in
   generate instr
 | TEunop(TUnot, e1) ->
-  let instr = Emunop(Msetnei(Int32.of_int 0), destr, destl) in
+  let instr = Emunop(Msetei(Int32.of_int 0), destr, destl) in
   expr e1 destr (generate instr)
 | TEunop(TUneg, e2) ->
   let r1 = Register.fresh () in
   let instr = Embinop(Msub, r1, destr, destl) in
-  let next1 = expr e2 destr (generate instr) in
-  expr (TEint 0, Type_int) r1 next1
+  let next1 = expr (TEint 0, Type_int) destr (generate instr) in
+  expr e2 r1 next1
 | TEbinop(TBeq, (TEfetch((TEident ids, _), idv), _), e2) ->
   begin
     try
       let r = Hashtbl.find local_env ids in
-      let r_e = Register.fresh () in
-      let instr = Estore(r_e, r, get_struct_shift ids idv, destl) in
+      let instr = Estore(destr, r, get_struct_shift ids idv, destl) in
       let nextl = generate instr in
-      expr e2 r_e nextl
+      expr e2 destr nextl
     with
     | Not_found ->
       let r = Register.fresh () in
-      let r_e = Register.fresh () in
-      let instr = Estore(r_e, r, get_struct_shift ids idv, destl) in
+      let instr = Estore(destr, r, get_struct_shift ids idv, destl) in
       let nextl = generate instr in
       let instrl = Eaccess_global(ids, r, nextl) in
       let fstl = generate instrl in
-      expr e2 r_e fstl
+      expr e2 destr fstl
   end
 | TEbinop(TBeq, (TEident id, _), e2) ->
   begin
     try
       let r = Hashtbl.find local_env id in
-      expr e2 r destl
+      let instr = Embinop(Mmov, r, destr, destl) in
+      let nextl = generate instr in
+      expr e2 r nextl
     with
     | Not_found ->
       let instr = Eassign_global(destr, id, destl) in
       let nextl = generate instr in
       expr e2 destr nextl
   end
+| TEbinop(TBsub, e1, e2) ->
+  let r1 = Register.fresh () in
+  let instr = Embinop(Msub, r1, destr, destl) in
+  let next1 = expr e2 r1 (generate instr) in
+  expr e1 destr next1
 | TEbinop(op, e1, e2) ->
   let r1 = Register.fresh () in
   let instr = Embinop(rtlbinop_of_binop op, r1, destr, destl) in
@@ -178,13 +187,13 @@ let rec condition e truel falsel = match fst e with
       let r2 = Register.fresh () in
       expr e1 r1
       (expr e2 r2
-      (generate (Embbranch (Mjle, r2, r1, truel, falsel))))
+      (generate (Embbranch (Mjle, r1, r2, falsel, truel))))
     | TBgte ->
       let r1 = Register.fresh () in
       let r2 = Register.fresh () in
       expr e1 r1
       (expr e2 r2
-      (generate (Embbranch (Mjl, r2, r1, truel, falsel))))
+      (generate (Embbranch (Mjl, r1, r2, falsel, truel))))
     | _ ->
       let r = Register.fresh () in
       expr e r
@@ -247,6 +256,12 @@ and block b destl retr exitl = match fst b with
     end
   end
 
+let rec add_params_to_env tpl reglst = match tpl, reglst with
+| [], [] -> ()
+| p::t1, r::t2 ->
+  Hashtbl.add local_env (param_to_id p) r; add_params_to_env t1 t2
+| _, _ -> failwith "lists should have the same size"
+
 let deffun fun_decl =
   Hashtbl.reset local_env;
   graph := Label.M.empty;
@@ -255,15 +270,16 @@ let deffun fun_decl =
   match fun_decl with
   | TDFint(n, tpl, instr_blk)
   | TDFstruct(_, n, tpl, instr_blk) ->
-    let entryl = block instr_blk exitl retr exitl in
     let reglst = List.map param_to_reg tpl in
+    (add_params_to_env tpl reglst;
+    let entryl = block instr_blk exitl retr exitl in
     { fun_name = n;
       fun_formals = reglst;
       fun_result = retr;
       fun_locals = !(ref Register.S.empty);
       fun_entry = entryl;
       fun_exit = exitl;
-      fun_body = !graph }
+      fun_body = !graph })
 
 let handle_decl_struct = function
 | TDTstruct(typ, dvl) ->
