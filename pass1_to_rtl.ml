@@ -45,11 +45,11 @@ let handle_decl_var = function
 | TDVint l | TDVstruct(_, l) ->
   List.iter add_var_to_env l
 
-let handle_var_struct_type = function
+let handle_var_struct_type b_declare_global = function
 | TDVint lst ->
-  List.iter (fun a -> (global_vars := a::(!global_vars))) lst
+  if b_declare_global then List.iter (fun a -> (global_vars := a::(!global_vars))) lst
 | TDVstruct(typ, l) ->
-  (List.iter (fun a -> (global_vars := a::(!global_vars))) l;
+  (if b_declare_global then List.iter (fun a -> (global_vars := a::(!global_vars))) l;
   List.iter (fun a -> Hashtbl.add var_struct_type a typ) l)
 
 let param_to_reg = function
@@ -235,7 +235,7 @@ and stmt s destl retr exitl = match fst s with
 and block b destl retr exitl = match fst b with
 | TBlock(dv_lst, instr_lst) ->
   (List.iter handle_decl_var dv_lst;
-  List.iter handle_var_struct_type dv_lst;
+  List.iter (handle_var_struct_type false) dv_lst;
   handle_instr destl retr exitl (List.rev instr_lst))
 
 let deffun fun_decl =
@@ -263,7 +263,7 @@ let handle_decl_struct = function
 let defdecl decl = match decl with
 | TDF df ->
   Some(deffun df)
-| TDV dv -> handle_var_struct_type dv; None
+| TDV dv -> handle_var_struct_type true dv; None
 | TDT ds -> handle_decl_struct ds; None
 
 let transform_to_rtl t_ast =

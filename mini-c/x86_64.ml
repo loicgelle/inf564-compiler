@@ -90,6 +90,7 @@ let reg r = fun fmt () -> fprintf fmt "%s" r
 let operand op = fun fmt () -> match op with
 | Ltltree.Reg r -> fprintf fmt "%a" Register.print r
 | Ltltree.Spilled n -> fprintf fmt "%d(%%rsp)" n
+let shifted_register r i = fun fmt () -> fprintf fmt "%d(%a)" i Register.print r
 let imm i = fun fmt () -> fprintf fmt "$%i" i
 let imm32 i = fun fmt () -> fprintf fmt "$%ld" i
 let ind ?(ofs=0) ?index ?(scale=1) r = fun fmt () -> match index with

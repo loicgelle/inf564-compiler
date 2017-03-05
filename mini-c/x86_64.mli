@@ -142,6 +142,7 @@ val reg: 'size register -> 'size operand
   (** registre *)
 val operand: Ltltree.operand -> 'size operand
   (** Ltltree operand *)
+val shifted_register: Ltltree.register -> int -> 'size operand
 val ind: ?ofs:int -> ?index:'size1 register -> ?scale:int ->
   'size2 register -> [>] operand
   (** opérande indirecte ofs(register, index, scale) *)
