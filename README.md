@@ -34,7 +34,7 @@ and
 make tests2
 ```
 
-The final level of tests depend on the host architecture. To ensure consistency between the development and the testing environment, the tests are encapsulated and performed in a Docker container. The base container has to be built before the tests are launched:
+The final level of tests depends on the host architecture. To ensure consistency between the development and the testing environment, the tests are encapsulated and performed in a Docker container. The base container has to be built before the tests are launched:
 
 ```
 make docker-init
