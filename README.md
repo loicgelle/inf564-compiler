@@ -45,7 +45,7 @@ If you are behind Polytechnique proxy, you should launch
 make docker-init-with-proxy
 ```
 
-instead.
+instead. The building phase of the base container can take a few minutes since packages are installed in the container.
 
 The tests can then be launched with:
 ```
