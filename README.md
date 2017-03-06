@@ -10,19 +10,19 @@
 
 ## Installation
 
-1. First, clone the project
+First, clone the project
 ```
 git clone git@github.com:loicgelle/inf564-compiler.git
 ```
 
-2. The project can then be natively compiled using the command
+The project can then be natively compiled using the command
 ```
 make
 ```
 
 ## Testing
 
-The first two levels of tests do not depend on the host architecture; therefore they can be performed using the compiled binary with the command:
+The first two levels of tests do not depend on the host architecture; therefore they can be performed using the compiled binary with the commands:
 
 ```
 make tests1
