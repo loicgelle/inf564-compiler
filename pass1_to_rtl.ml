@@ -6,7 +6,6 @@ open Ops
 let graph = ref Label.M.empty
 let local_env = Hashtbl.create 10
 let struct_env = Hashtbl.create 10
-let var_struct_type = Hashtbl.create 10
 let global_vars = ref []
 
 (* Helper functions *)
@@ -15,12 +14,15 @@ let generate i =
     graph := Label.M.add l i !graph;
     l
 
-let get_struct_shift ids idv =
+let generate_in_label l i =
+  graph := Label.M.add l i !graph;
+  l
+
+let get_struct_shift_for_var typ idv =
   let rec aux i v = function
   | h::_ when h = v -> i
   | h::t -> aux (i+1) v t
   | [] -> failwith "var is not declared in struct" in
-  let typ = Hashtbl.find var_struct_type ids in
   let lst = Hashtbl.find struct_env typ in
   8 * (aux 0 idv lst)
 
@@ -42,8 +44,7 @@ let handle_var_struct_type b_declare_global = function
 | TDVint lst ->
   if b_declare_global then List.iter (fun a -> (global_vars := a::(!global_vars))) lst
 | TDVstruct(typ, l) ->
-  (if b_declare_global then List.iter (fun a -> (global_vars := a::(!global_vars))) l;
-  List.iter (fun a -> Hashtbl.add var_struct_type a typ) l)
+  (if b_declare_global then List.iter (fun a -> (global_vars := a::(!global_vars))) l)
 
 let param_to_reg = function
 | TPint(id) | TPstruct(_, id) ->
@@ -68,6 +69,39 @@ let map_ignore_none mapfun lst =
       | Some new_h -> aux (new_h::acc) t)
   in List.rev (aux [] lst)
 
+let put_addr_in_reg nextl addr_reg =
+  let rec aux nextl addr_reg = function
+  | TEident id, Type_struct typ ->
+    begin
+      try
+        let r = Hashtbl.find local_env id in
+        let instr = Embinop(Mmov, r, addr_reg, nextl) in
+        let fstl = generate instr in
+        (fstl, typ)
+      with
+      | Not_found ->
+        let instr = Eaccess_global(id, addr_reg, nextl) in
+        let fstl = generate instr in
+        (fstl, typ)
+    end
+  | TEfetch(e1, v), Type_struct typ ->
+    begin
+      let r = Register.fresh () in
+      let newl = Label.fresh () in
+      let (fstl, lefttyp) = aux newl r e1 in
+      let shift = get_struct_shift_for_var lefttyp v in
+      let instr = Eload(r, shift, addr_reg, nextl) in
+      ignore (generate_in_label newl instr);
+      (fstl, typ)
+    end
+  | _, _ -> failwith "should be rejected by typing" in
+  function
+  | TEfetch(e1, v), _ ->
+    let (fstl, lefttyp) = aux nextl addr_reg e1 in
+    let shift = get_struct_shift_for_var lefttyp v in
+    (fstl, shift)
+  | _, _ -> failwith "not handled in put_addr_in_reg"
+
 (* Typed AST handlers *)
 let rec expr e destr destl = match fst e with
 | TEint i ->
@@ -81,35 +115,26 @@ let rec expr e destr destl = match fst e with
   let instr = Embinop(Msub, r1, destr, destl) in
   let next1 = expr (TEint 0, Type_int) destr (generate instr) in
   expr e2 r1 next1
-| TEbinop(TBeq, (TEfetch((TEident ids, _), idv), _), e2) ->
-  begin
-    try
-      let r = Hashtbl.find local_env ids in
-      let instr = Estore(destr, r, get_struct_shift ids idv, destl) in
-      let nextl = generate instr in
-      expr e2 destr nextl
-    with
-    | Not_found ->
-      let r = Register.fresh () in
-      let instr = Estore(destr, r, get_struct_shift ids idv, destl) in
-      let nextl = generate instr in
-      let instrl = Eaccess_global(ids, r, nextl) in
-      let fstl = generate instrl in
-      expr e2 destr fstl
-  end
 | TEbinop(TBeq, (TEident id, _), e2) ->
   begin
     try
       let r = Hashtbl.find local_env id in
-      let instr = Embinop(Mmov, r, destr, destl) in
+      let instr = Embinop(Mmov, destr, r, destl) in
       let nextl = generate instr in
-      expr e2 r nextl
+      expr e2 destr nextl
     with
     | Not_found ->
       let instr = Eassign_global(destr, id, destl) in
       let nextl = generate instr in
       expr e2 destr nextl
   end
+| TEbinop(TBeq, e1, e2) ->
+  let r = Register.fresh () in
+  let nextl2 = Label.fresh () in
+  let (nextl, shift) = put_addr_in_reg nextl2 r e1 in
+  let instr = Estore(destr, r, shift, destl) in
+  (ignore (generate_in_label nextl2 instr);
+  expr e2 destr nextl)
 | TEbinop(TBsub, e1, e2) ->
   let r1 = Register.fresh () in
   let instr = Embinop(Msub, r1, destr, destl) in
@@ -138,22 +163,12 @@ let rec expr e destr destl = match fst e with
   let instr = Ecall(destr, id, reglst, destl) in
   let calll = generate instr in
   args_to_instr calll reglst e_lst
-| TEfetch((TEident ids, _), idv) ->
-  begin
-    try
-      let r = Hashtbl.find local_env ids in
-      let instr = Eload(r, get_struct_shift ids idv, destr, destl) in
-      generate instr
-    with
-    | Not_found ->
-      let r = Register.fresh () in
-      let instrl = Eload(r, get_struct_shift ids idv, destr, destl) in
-      let nextl = generate instrl in
-      let instrg = Eaccess_global(ids, r, nextl) in
-      generate instrg
-  end
 | TEfetch(_, _) ->
-  failwith "left hanside is not a struct"
+  let r = Register.fresh () in
+  let nextl2 = Label.fresh () in
+  let (nextl, shift) = put_addr_in_reg nextl2 r e in
+  let instr = Eload(r, shift, destr, destl) in
+  ignore (generate_in_label nextl2 instr); nextl
 | TEsizeof ids ->
   let s = 8 * List.length (Hashtbl.find struct_env ids) in
   let instr = Econst(Int32.of_int s, destr, destl) in

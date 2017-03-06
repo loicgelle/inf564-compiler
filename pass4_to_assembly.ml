@@ -10,15 +10,23 @@ let emit_wl i = code := Code i :: !code
 let labels = Hashtbl.create 17
 let need_label l = Hashtbl.add labels l ()
 
+let rec replace_label g l =
+  match Label.M.find l g with
+  | Ltltree.Egoto(l1) -> replace_label g l1
+  | _ -> need_label l; (l :> string)
+
 let rec lin g l =
   if not (Hashtbl.mem visited l) then begin
     Hashtbl.add visited l ();
     instr g l (Label.M.find l g)
   end else begin
-    need_label l;
-    emit_wl (jmp (l :> string))
+    emit_wl (jmp (replace_label g l))
   end
 and instr g l = function
+| Ltltree.Econst (n, r, l1) when (Int32.compare n Int32.zero) = 0 ->
+  (match r with
+  | Ltltree.Reg _ -> emit l (xorq (operand r) (operand r)); lin g l1
+  | Ltltree.Spilled _ -> emit l (movq (imm32 n) (operand r)); lin g l1)
 | Ltltree.Econst (n, r, l1) ->
   emit l (movq (imm32 n) (operand r)); lin g l1
 | Ltltree.Emunop(op, r, l1) ->
@@ -41,7 +49,7 @@ and instr g l = function
     | Madd -> emit l (addq (operand r1) (operand r2)); lin g l1
     | Msub -> emit l (subq (operand r1) (operand r2)); lin g l1
     | Mmul -> emit l (imulq (operand r1) (operand r2)); lin g l1
-    | Mdiv -> emit l (idivq (operand r2)); lin g l1
+    | Mdiv -> emit l cqto; emit (Label.fresh ()) (idivq (operand r1)); lin g l1
     | Mand | Mor ->
       emit l (cmpq (imm32 Int32.zero) (operand r1));
       emit (Label.fresh ()) (setne (operand_to_8bit r1));
@@ -86,8 +94,7 @@ and instr g l = function
 | Ltltree.Ecall(id, l1) ->
   emit l (call id); lin g l1
 | Ltltree.Egoto(l1) ->
-  if Hashtbl.mem visited l1 then emit l (jmp (l1 :> string))
-  else (Hashtbl.remove visited l; lin g l1)
+  lin g l1
 | Ltltree.Emubranch(op, r, l1_1, l1_2) ->
   let reg = Ltltree.Reg r in
   if not (Hashtbl.mem visited l1_2) then begin
@@ -95,16 +102,16 @@ and instr g l = function
     (match op with
     | Mjz ->
       (emit l (cmpq (imm32 Int32.zero) (operand reg));
-      emit newl (je (l1_1 :> string)))
+      emit newl (je (replace_label g l1_1)); need_label l1_1)
     |	Mjnz ->
       (emit l (cmpq (imm32 Int32.zero) (operand reg));
-      emit newl (jne (l1_1 :> string)))
+      emit newl (jne (replace_label g l1_1)); need_label l1_1)
     |	Mjlei(i) ->
       (emit l (cmpq (imm32 i) (operand reg));
-      emit newl (jle (l1_1 :> string)))
+      emit newl (jle (replace_label g l1_1)); need_label l1_1)
     |	Mjgi(i) ->
       (emit l (cmpq (imm32 i) (operand reg));
-      emit newl (jg (l1_1 :> string))));
+      emit newl (jg (replace_label g l1_1)); need_label l1_1));
     lin g l1_2; lin g l1_1
   end
   else if not (Hashtbl.mem visited l1_1) then begin
@@ -112,16 +119,16 @@ and instr g l = function
     (match op with
     | Mjz ->
       (emit l (cmpq (imm32 Int32.zero) (operand reg));
-      emit newl (jne (l1_2 :> string)))
+      emit newl (jne (replace_label g  l1_2)); need_label l1_2)
     |	Mjnz ->
       (emit l (cmpq (imm32 Int32.zero) (operand reg));
-      emit newl (je (l1_2 :> string)))
+      emit newl (je (replace_label g  l1_2)); need_label l1_2)
     |	Mjlei(i) ->
       (emit l (cmpq (imm32 i) (operand reg));
-      emit newl (jg (l1_2 :> string)))
+      emit newl (jg (replace_label g  l1_2)); need_label l1_2)
     |	Mjgi(i) ->
       (emit l (cmpq (imm32 i) (operand reg));
-      emit newl (jle (l1_2 :> string))));
+      emit newl (jle (replace_label g  l1_2)); need_label l1_2));
     lin g l1_1; lin g l1_2
   end
   else begin
@@ -129,17 +136,17 @@ and instr g l = function
     (match op with
     | Mjz ->
       (emit l (cmpq (imm32 Int32.zero) (operand reg));
-      emit newl (je (l1_1 :> string)))
+      emit newl (je (replace_label g l1_1)))
     |	Mjnz ->
       (emit l (cmpq (imm32 Int32.zero) (operand reg));
-      emit newl (jne (l1_1 :> string)))
+      emit newl (jne (replace_label g l1_1)))
     |	Mjlei(i) ->
       (emit l (cmpq (imm32 i) (operand reg));
-      emit newl (jle (l1_1 :> string)))
+      emit newl (jle (replace_label g l1_1)))
     |	Mjgi(i) ->
       (emit l (cmpq (imm32 i) (operand reg));
-      emit newl (jg (l1_1 :> string))));
-    emit (Label.fresh ()) (jmp (l1_2 :> string))
+      emit newl (jg (replace_label g l1_1))));
+    lin g l1_2; lin g l1_1; need_label l1_1; need_label l1_2
   end
 | Ltltree.Embbranch(op, r1, r2, l1_1, l1_2) ->
   let reg1 = Ltltree.Reg r1 in
@@ -149,23 +156,23 @@ and instr g l = function
     if not (Hashtbl.mem visited l1_2) then begin
       let newl = Label.fresh () in
       (match op with
-      | Mjl -> (emit newl (jl (l1_1 :> string)))
-      | Mjle -> (emit newl (jle (l1_1 :> string))));
-      lin g l1_2; lin g l1_1
+      | Mjl -> (emit newl (jl (replace_label g l1_1)))
+      | Mjle -> (emit newl (jle (replace_label g l1_1))));
+      lin g l1_2; lin g l1_1; need_label l1_1
     end
     else if not (Hashtbl.mem visited l1_1) then begin
       let newl = Label.fresh () in
       (match op with
-      | Mjl -> (emit newl (jge (l1_2 :> string)))
-      | Mjle -> (emit newl (jg (l1_2 :> string))));
-      lin g l1_1; lin g l1_2
+      | Mjl -> (emit newl (jge (replace_label g l1_2)))
+      | Mjle -> (emit newl (jg (replace_label g l1_2))));
+      lin g l1_1; lin g l1_2; need_label l1_2
     end
     else begin
       let newl = Label.fresh () in
       (match op with
-      | Mjl -> emit newl (jl (l1_1 :> string))
-      |	Mjle -> emit newl (jle (l1_1 :> string)));
-      emit (Label.fresh ()) (jmp (l1_2 :> string))
+      | Mjl -> emit newl (jl (replace_label g l1_1))
+      |	Mjle -> emit newl (jle (replace_label g l1_1)));
+      lin g l1_2; lin g l1_1; need_label l1_1; need_label l1_2
     end
   end
 | Ltltree.Eaccess_global(id, r, l1) ->
@@ -178,18 +185,18 @@ and instr g l = function
   emit l (movq (operand (Ltltree.Reg r1)) (shifted_register r2 i)); lin g l1
 
 let handle_fun asm func =
-  (*let filter_func = function
+  let filter_func = function
   | Code _ -> true
   | Label l when Hashtbl.mem labels l -> true
-  | _ -> false in*)
+  | _ -> false in
   let map_func = function
   | Code t -> t
   | Label l -> label (l :> string) in
   begin
     code := [];
     lin func.Ltltree.fun_body func.Ltltree.fun_entry;
-    let new_code = List.map map_func (List.rev !code) in
-    (*let new_code = List.map map_func (List.rev (List.filter filter_func !code)) in*)
+    (*let new_code = List.map map_func (List.rev !code) in*)
+    let new_code = List.map map_func (List.rev (List.filter filter_func !code)) in
     let new_asm = List.fold_left (++) (label func.Ltltree.fun_name) new_code in
     (++) asm new_asm
   end

@@ -77,7 +77,7 @@ rule next_tokens = parse
   | "&&"    { [AND] }
   | "||"    { [OR] }
   | integer as s
-            { if s.[0] = '0' && (String.length s) > 1 then
+            { if s.[0] = '0' && (String.length s) > 1 && not (s.[1] = 'x') then
                 try [INTEG (int_of_string ("0o" ^ (String.sub s 1 ((String.length s) - 1))))]
                 with _ -> raise (Lexing_error ("constant too large: " ^ s))
               else

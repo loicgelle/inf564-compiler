@@ -1,6 +1,4 @@
-testprg.c
 .DS_Store
 main.native
 _build/
-tests
 .depend

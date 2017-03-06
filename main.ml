@@ -9,7 +9,7 @@ open Pass1_to_rtl
 
 let usage = "usage: compiler [options] file.c"
 
-let debug = true
+let debug = false
 
 let parse_only = ref false
 let type_only = ref false

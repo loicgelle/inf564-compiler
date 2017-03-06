@@ -20,7 +20,7 @@ tests2:
 tests3:
 	cd tests; ./run -3 ../main.native
 
-docker-build: clean clean-tests
+docker-tests: clean clean-tests
 	docker build -t compiler-base docker-base
 	docker build --no-cache=true -t compiler .
 	docker run compiler
