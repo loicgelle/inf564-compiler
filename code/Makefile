@@ -6,6 +6,7 @@ compiler:
 clean-tests:
 	rm -rf tests/exec/*.s
 	rm -rf tests/exec-fail/*.s
+	rm -rf tests/exec/*.out
 
 clean: clean-tests
 	rm -rf _build
