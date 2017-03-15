@@ -17,7 +17,7 @@ git clone git@github.com:loicgelle/inf564-compiler.git
 
 The project can then be natively compiled using the command
 ```
-make
+cd code && make
 ```
 
 ## Testing
